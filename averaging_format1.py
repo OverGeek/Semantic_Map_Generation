@@ -59,43 +59,35 @@ if len(semantic_database) == 0 or over_write_semantic_map == True:
 
 for line_dict in object_world_cords:
     name_obj = line_dict["Name"]
-    maximum_obj_id = 0
+    maximum_obj_id = -1
     for obj_instance in semantic_database:
         if obj_instance.startswith(name_obj + "_"):
-            maximum_obj_id += 1
-    while (name_obj + "_" + str(maximum_obj_id)) in semantic_database:
-        maximum_obj_id += 1
+            maximum_obj_id = max(maximum_obj_id, int(obj_instance[len(name_obj) + 1:]))
 
-    dist = []
-    coorDist = []
-    for obj_instance in semantic_database:
-        sum_dist = 0.
-        if obj_instance.startswith(name_obj):
-            for corner in line_dict["corners"]:
-                X, Y, Z, corner_name, conf = corner
-                conf = 1 / Z
-                world_coord = np.array([X, Y, Z]).reshape(3, 1)
-                if corner_name in semantic_database[obj_instance]:
-                    clustered_world_coord = np.array(
-                        [
-                            semantic_database[obj_instance][corner_name]["X"],
-                            semantic_database[obj_instance][corner_name]["Y"],
-                            semantic_database[obj_instance][corner_name]["Z"],
-                        ])
-                sum_dist += np.linalg.norm(
-                    np.array(world_coord).reshape(3, 1) - np.array(clustered_world_coord).reshape(3, 1))
-            dist.append(sum_dist)
-            coorDist.append(obj_instance)
-    if len(dist) > 0:
-        idx = np.argmin(dist)
-        if dist[idx] > distance_threshhold:
-            obj_instance = name_obj + "_" + str(maximum_obj_id + 1)
-            semantic_database[obj_instance] = {}
+    for corner in line_dict["corners"]:
+        X, Y, Z, corner_name, conf = corner
+        world_coord = np.array([X, Y, Z]).reshape(3, 1)
+        dist = []
+        coorDist = []
+        for obj_instance in semantic_database:
+            if obj_instance.startswith(name_obj) and corner_name in semantic_database[obj_instance]:
+                clustered_world_coord = np.array(
+                    [
+                        semantic_database[obj_instance][corner_name]["X"],
+                        semantic_database[obj_instance][corner_name]["Y"],
+                        semantic_database[obj_instance][corner_name]["Z"],
+                    ]
+                ).reshape(3, 1)
+                dist.append(
+                    np.linalg.norm(np.array(world_coord).reshape(3, 1) - np.array(clustered_world_coord).reshape(3, 1)))
+                coorDist.append([clustered_world_coord, int(obj_instance[len(name_obj) + 1:])])
+        if len(dist) > 0:
+            idx = np.argmin(dist)
+            if dist[idx] > distance_threshhold:
+                obj_instance = name_obj + "_" + str(maximum_obj_id + 1)
+                if obj_instance not in semantic_database:
+                    semantic_database[obj_instance] = {}
 
-            for corner in line_dict["corners"]:
-                X, Y, Z, corner_name, conf = corner
-                conf = 1 / Z
-                world_coord = np.array([X, Y, Z]).reshape(3, 1)
                 semantic_database[obj_instance][corner_name] = {}
 
                 semantic_database[obj_instance][corner_name]["num_X"] = world_coord[0, 0] * 1 / world_coord[2, 0]
@@ -118,123 +110,114 @@ for line_dict in object_world_cords:
                         semantic_database[obj_instance][corner_name]["num_X"]
                         / semantic_database[obj_instance][corner_name]["denom_X"]
                 )
-        else:
-            obj_instance = coorDist[idx]
-            for corner in line_dict["corners"]:
-                X, Y, Z, corner_name, conf = corner
-                conf = 1 / Z
-                world_coord = np.array([X, Y, Z]).reshape(3, 1)
+            else:
+                obj_instance = name_obj + "_" + str(coorDist[idx][1])
+                semantic_database[obj_instance][corner_name]["num_X"] = semantic_database[obj_instance][corner_name][
+                                                                            "num_X"
+                                                                        ] + (world_coord[0, 0] * 1 / world_coord[2, 0])
 
-                if corner_name in semantic_database[obj_instance]:
-                    semantic_database[obj_instance][corner_name]["num_X"] = \
-                    semantic_database[obj_instance][corner_name][
-                        "num_X"
-                    ] + (world_coord[0, 0] * 1 / world_coord[2, 0])
+                semantic_database[obj_instance][corner_name]["num_Y"] = semantic_database[obj_instance][corner_name][
+                                                                            "num_Y"
+                                                                        ] + (world_coord[1, 0] * 1 / world_coord[2, 0])
 
-                    semantic_database[obj_instance][corner_name]["num_Y"] = \
-                    semantic_database[obj_instance][corner_name][
-                        "num_Y"
-                    ] + (world_coord[1, 0] * 1 / world_coord[2, 0])
+                semantic_database[obj_instance][corner_name]["num_Z"] = semantic_database[obj_instance][corner_name][
+                                                                            "num_Z"
+                                                                        ] + (world_coord[2, 0] * 1 / world_coord[2, 0])
 
-                    semantic_database[obj_instance][corner_name]["num_Z"] = \
-                    semantic_database[obj_instance][corner_name][
-                        "num_Z"
-                    ] + (world_coord[2, 0] * 1 / world_coord[2, 0])
+                semantic_database[obj_instance][corner_name]["denom_Z"] += 1 / world_coord[2, 0]
+                semantic_database[obj_instance][corner_name]["denom_Y"] += 1 / world_coord[2, 0]
+                semantic_database[obj_instance][corner_name]["denom_X"] += 1 / world_coord[2, 0]
 
-                    semantic_database[obj_instance][corner_name]["denom_Z"] += 1 / world_coord[2, 0]
-                    semantic_database[obj_instance][corner_name]["denom_Y"] += 1 / world_coord[2, 0]
-                    semantic_database[obj_instance][corner_name]["denom_X"] += 1 / world_coord[2, 0]
+                semantic_database[obj_instance][corner_name]["Z"] = (
+                        semantic_database[obj_instance][corner_name]["num_Z"]
+                        / semantic_database[obj_instance][corner_name]["denom_Z"]
+                )
+                semantic_database[obj_instance][corner_name]["Y"] = (
+                        semantic_database[obj_instance][corner_name]["num_Y"]
+                        / semantic_database[obj_instance][corner_name]["denom_Y"]
+                )
+                semantic_database[obj_instance][corner_name]["X"] = (
+                        semantic_database[obj_instance][corner_name]["num_X"]
+                        / semantic_database[obj_instance][corner_name]["denom_X"]
+                )
 
-                    semantic_database[obj_instance][corner_name]["Z"] = (
-                            semantic_database[obj_instance][corner_name]["num_Z"]
-                            / semantic_database[obj_instance][corner_name]["denom_Z"]
-                    )
-                    semantic_database[obj_instance][corner_name]["Y"] = (
-                            semantic_database[obj_instance][corner_name]["num_Y"]
-                            / semantic_database[obj_instance][corner_name]["denom_Y"]
-                    )
-                    semantic_database[obj_instance][corner_name]["X"] = (
-                            semantic_database[obj_instance][corner_name]["num_X"]
-                            / semantic_database[obj_instance][corner_name]["denom_X"]
-                    )
+    # for corner in line_dict["corners"]:
+    #     X, Y, Z, corner_name, conf = corner
+    #     conf = 1/Z
+    #     world_coord = np.array([X, Y, Z]).reshape(3, 1)
+    #     dist = []
+    #     coorDist = []
+    #     for obj_instance in semantic_database:
+    #         if obj_instance.startswith(name_obj) and corner_name in semantic_database[obj_instance]:
+    #             clustered_world_coord = np.array(
+    #                 [
+    #                     semantic_database[obj_instance][corner_name]["X"],
+    #                     semantic_database[obj_instance][corner_name]["Y"],
+    #                     semantic_database[obj_instance][corner_name]["Z"],
+    #                 ]
+    #             ).reshape(3, 1)
+    #             dist.append(
+    #                 np.linalg.norm(np.array(world_coord).reshape(3, 1) - np.array(clustered_world_coord).reshape(3, 1)))
+    #             coorDist.append([clustered_world_coord, obj_instance])
+    #     if len(dist) > 0:
+    #         idx = np.argmin(dist)
+    #         if dist[idx] > distance_threshhold:
+    #             obj_instance = name_obj + "_" + str(maximum_obj_id + 1)
+    #             if obj_instance not in semantic_database:
+    #                 semantic_database[obj_instance] = {}
 
-# for corner in line_dict["corners"]:
-#     X, Y, Z, corner_name, conf = corner
-#     conf = 1/Z
-#     world_coord = np.array([X, Y, Z]).reshape(3, 1)
-#     dist = []
-#     coorDist = []
-#     for obj_instance in semantic_database:
-#         if obj_instance.startswith(name_obj) and corner_name in semantic_database[obj_instance]:
-#             clustered_world_coord = np.array(
-#                 [
-#                     semantic_database[obj_instance][corner_name]["X"],
-#                     semantic_database[obj_instance][corner_name]["Y"],
-#                     semantic_database[obj_instance][corner_name]["Z"],
-#                 ]
-#             ).reshape(3, 1)
-#             dist.append(
-#                 np.linalg.norm(np.array(world_coord).reshape(3, 1) - np.array(clustered_world_coord).reshape(3, 1)))
-#             coorDist.append([clustered_world_coord, obj_instance])
-#     if len(dist) > 0:
-#         idx = np.argmin(dist)
-#         if dist[idx] > distance_threshhold:
-#             obj_instance = name_obj + "_" + str(maximum_obj_id + 1)
-#             if obj_instance not in semantic_database:
-#                 semantic_database[obj_instance] = {}
+    #             semantic_database[obj_instance][corner_name] = {}
 
-#             semantic_database[obj_instance][corner_name] = {}
+    #             semantic_database[obj_instance][corner_name]["num_X"] = world_coord[0, 0] * 1 / world_coord[2, 0]
+    #             semantic_database[obj_instance][corner_name]["num_Y"] = world_coord[1, 0] * 1 / world_coord[2, 0]
+    #             semantic_database[obj_instance][corner_name]["num_Z"] = world_coord[2, 0] * 1 / world_coord[2, 0]
 
-#             semantic_database[obj_instance][corner_name]["num_X"] = world_coord[0, 0] * 1 / world_coord[2, 0]
-#             semantic_database[obj_instance][corner_name]["num_Y"] = world_coord[1, 0] * 1 / world_coord[2, 0]
-#             semantic_database[obj_instance][corner_name]["num_Z"] = world_coord[2, 0] * 1 / world_coord[2, 0]
+    #             semantic_database[obj_instance][corner_name]["denom_X"] = 1 + (1 / world_coord[2, 0])
+    #             semantic_database[obj_instance][corner_name]["denom_Y"] = 1 + (1 / world_coord[2, 0])
+    #             semantic_database[obj_instance][corner_name]["denom_Z"] = 1 + (1 / world_coord[2, 0])
 
-#             semantic_database[obj_instance][corner_name]["denom_X"] = 1 + (1 / world_coord[2, 0])
-#             semantic_database[obj_instance][corner_name]["denom_Y"] = 1 + (1 / world_coord[2, 0])
-#             semantic_database[obj_instance][corner_name]["denom_Z"] = 1 + (1 / world_coord[2, 0])
+    #             semantic_database[obj_instance][corner_name]["Z"] = (
+    #                     semantic_database[obj_instance][corner_name]["num_Z"]
+    #                     / semantic_database[obj_instance][corner_name]["denom_Z"]
+    #             )
+    #             semantic_database[obj_instance][corner_name]["Y"] = (
+    #                     semantic_database[obj_instance][corner_name]["num_Y"]
+    #                     / semantic_database[obj_instance][corner_name]["denom_Y"]
+    #             )
+    #             semantic_database[obj_instance][corner_name]["X"] = (
+    #                     semantic_database[obj_instance][corner_name]["num_X"]
+    #                     / semantic_database[obj_instance][corner_name]["denom_X"]
+    #             )
+    #         else:
+    #             obj_instance = coorDist[idx][1]
+    #             semantic_database[obj_instance][corner_name]["num_X"] = semantic_database[obj_instance][corner_name][
+    #                                                                         "num_X"
+    #                                                                     ] + (world_coord[0, 0] * 1 / world_coord[2, 0])
 
-#             semantic_database[obj_instance][corner_name]["Z"] = (
-#                     semantic_database[obj_instance][corner_name]["num_Z"]
-#                     / semantic_database[obj_instance][corner_name]["denom_Z"]
-#             )
-#             semantic_database[obj_instance][corner_name]["Y"] = (
-#                     semantic_database[obj_instance][corner_name]["num_Y"]
-#                     / semantic_database[obj_instance][corner_name]["denom_Y"]
-#             )
-#             semantic_database[obj_instance][corner_name]["X"] = (
-#                     semantic_database[obj_instance][corner_name]["num_X"]
-#                     / semantic_database[obj_instance][corner_name]["denom_X"]
-#             )
-#         else:
-#             obj_instance = coorDist[idx][1]
-#             semantic_database[obj_instance][corner_name]["num_X"] = semantic_database[obj_instance][corner_name][
-#                                                                         "num_X"
-#                                                                     ] + (world_coord[0, 0] * 1 / world_coord[2, 0])
+    #             semantic_database[obj_instance][corner_name]["num_Y"] = semantic_database[obj_instance][corner_name][
+    #                                                                         "num_Y"
+    #                                                                     ] + (world_coord[1, 0] * 1 / world_coord[2, 0])
 
-#             semantic_database[obj_instance][corner_name]["num_Y"] = semantic_database[obj_instance][corner_name][
-#                                                                         "num_Y"
-#                                                                     ] + (world_coord[1, 0] * 1 / world_coord[2, 0])
+    #             semantic_database[obj_instance][corner_name]["num_Z"] = semantic_database[obj_instance][corner_name][
+    #                                                                         "num_Z"
+    #                                                                     ] + (world_coord[2, 0] * 1 / world_coord[2, 0])
 
-#             semantic_database[obj_instance][corner_name]["num_Z"] = semantic_database[obj_instance][corner_name][
-#                                                                         "num_Z"
-#                                                                     ] + (world_coord[2, 0] * 1 / world_coord[2, 0])
+    #             semantic_database[obj_instance][corner_name]["denom_Z"] += 1 / world_coord[2, 0]
+    #             semantic_database[obj_instance][corner_name]["denom_Y"] += 1 / world_coord[2, 0]
+    #             semantic_database[obj_instance][corner_name]["denom_X"] += 1 / world_coord[2, 0]
 
-#             semantic_database[obj_instance][corner_name]["denom_Z"] += 1 / world_coord[2, 0]
-#             semantic_database[obj_instance][corner_name]["denom_Y"] += 1 / world_coord[2, 0]
-#             semantic_database[obj_instance][corner_name]["denom_X"] += 1 / world_coord[2, 0]
-
-#             semantic_database[obj_instance][corner_name]["Z"] = (
-#                     semantic_database[obj_instance][corner_name]["num_Z"]
-#                     / semantic_database[obj_instance][corner_name]["denom_Z"]
-#             )
-#             semantic_database[obj_instance][corner_name]["Y"] = (
-#                     semantic_database[obj_instance][corner_name]["num_Y"]
-#                     / semantic_database[obj_instance][corner_name]["denom_Y"]
-#             )
-#             semantic_database[obj_instance][corner_name]["X"] = (
-#                     semantic_database[obj_instance][corner_name]["num_X"]
-#                     / semantic_database[obj_instance][corner_name]["denom_X"]
-#             )
+    #             semantic_database[obj_instance][corner_name]["Z"] = (
+    #                     semantic_database[obj_instance][corner_name]["num_Z"]
+    #                     / semantic_database[obj_instance][corner_name]["denom_Z"]
+    #             )
+    #             semantic_database[obj_instance][corner_name]["Y"] = (
+    #                     semantic_database[obj_instance][corner_name]["num_Y"]
+    #                     / semantic_database[obj_instance][corner_name]["denom_Y"]
+    #             )
+    #             semantic_database[obj_instance][corner_name]["X"] = (
+    #                     semantic_database[obj_instance][corner_name]["num_X"]
+    #                     / semantic_database[obj_instance][corner_name]["denom_X"]
+    #             )
 
 plot_dict = {}
 
@@ -249,11 +232,8 @@ print(semantic_database)
 
 for obj, data in semantic_database.items():
     for corner_no in range(1, 5):
-        try:
-            plot_dict[obj.split('_')[0]][0].append(data[f"Pos{corner_no}"]["X"])
-            plot_dict[obj.split('_')[0]][1].append(data[f"Pos{corner_no}"]["Z"])
-        except:
-            continue
+        plot_dict[obj.split('_')[0]][0].append(data[f"Pos{corner_no}"]["X"])
+        plot_dict[obj.split('_')[0]][1].append(data[f"Pos{corner_no}"]["Z"])
 
 for obj, data in plot_dict.items():
     plt.scatter(data[0], data[1])

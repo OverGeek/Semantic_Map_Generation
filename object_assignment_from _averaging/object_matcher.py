@@ -33,6 +33,7 @@ for row in obj_world_coords:
 for i in range(0, len(obj_world_coords), 4):
     img_name = obj_world_coords[i]["ID"]
     obj_name = obj_world_coords[i]["Name"].split('_')[0]
+    obj_name_complete = obj_world_coords[i]["Name"]
 
     corner_coords = []
 
@@ -62,9 +63,27 @@ for i in range(0, len(obj_world_coords), 4):
             u3, v3 = uv_coord["Xmin"], uv_coord["Ymax"]
             u4, v4 = uv_coord["Xmax"], uv_coord["Ymax"]
 
-    img_dict = {obj_name: [[[u1, v1], averaged_objs[key_min]["Pos1"]["X"], averaged_objs[key_min]["Pos1"]["Y"], averaged_objs[key_min]["Pos1"]["Z"]],
-                           [[u2, v2], averaged_objs[key_min]["Pos2"]["X"], averaged_objs[key_min]["Pos2"]["Y"], averaged_objs[key_min]["Pos2"]["Z"]],
-                           [[u3, v3], averaged_objs[key_min]["Pos3"]["X"], averaged_objs[key_min]["Pos3"]["Y"], averaged_objs[key_min]["Pos3"]["Z"]],
-                           [[u4, v4], averaged_objs[key_min]["Pos4"]["X"], averaged_objs[key_min]["Pos4"]["Y"], averaged_objs[key_min]["Pos4"]["Z"]]]}
+    img_dict = {obj_name_complete: []}
+
+    try:
+        img_dict[obj_name_complete].append([[u1, v1], averaged_objs[key_min]["Pos1"]["X"], averaged_objs[key_min]["Pos1"]["Y"], averaged_objs[key_min]["Pos1"]["Z"], "Pos1"])
+    except:
+        pass
+    try:
+        img_dict[obj_name_complete].append([[u2, v2], averaged_objs[key_min]["Pos2"]["X"], averaged_objs[key_min]["Pos2"]["Y"], averaged_objs[key_min]["Pos2"]["Z"], "Pos2"])
+    except:
+        pass
+    try:
+        img_dict[obj_name_complete].append([[u3, v3], averaged_objs[key_min]["Pos3"]["X"], averaged_objs[key_min]["Pos3"]["Y"], averaged_objs[key_min]["Pos3"]["Z"], "Pos3"])
+    except:
+        pass
+    try:
+        img_dict[obj_name_complete].append([[u4, v4], averaged_objs[key_min]["Pos4"]["X"], averaged_objs[key_min]["Pos4"]["Y"], averaged_objs[key_min]["Pos4"]["Z"], "Pos4"])
+    except:
+        pass
+
     assigned_coords[img_name].append(img_dict)
+
+with open('./place_semantic.json', 'w') as f:
+    json.dump(assigned_coords, f, indent=1)
 
