@@ -1,16 +1,20 @@
 import json
 from correspondence_matcher import correspondence_matcher
 
-obj_file = "./seq22_annot.json"
+obj_file = "./pred_seq22.json"
+char_obj_file = './char_images.json'
 
 with open(obj_file, "rb") as f:
 	obj_list = json.load(f)
 
-image_1 = "left000001.png"
-image_2 = "left000006.png"
+with open(char_obj_file, "rb") as f:
+	char_obj_list = json.load(f)
 
-bbox_1 = obj_list[image_1]
-bbox_2 = obj_list[image_2]
+image = "left003169.png"
+char_image = "000023_rgb.png"
+
+bbox_1 = char_obj_list[char_image]
+bbox_2 = obj_list[image]
 
 
 correspondence_matcher(bbox_1, bbox_2)
